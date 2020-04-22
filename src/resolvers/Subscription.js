@@ -1,16 +1,18 @@
 const Subscription = {
-  count: {
-    subscribe(parent, args, { pubSub }, info) {
-      let count = 0;
+  comment: {
+    subscribe: (parent, { postId }, { db, pubSub }, info) => {
+      const post = db.posts.find(
+        (post) => post.id === postId && post.published === true
+      );
 
-      setInterval(() => {
-        count++;
-        pubSub.publish("count", {
-          count,
-        });
-      }, 1000);
+      if (!post) throw new Error("Post Not Found!!!");
 
-      return pubSub.asyncIterator("count");
+      return pubSub.asyncIterator(`comment ${postId}`);
+    },
+  },
+  post: {
+    subscribe: (parent, args, { pubSub }, info) => {
+      return pubSub.asyncIterator("post");
     },
   },
 };

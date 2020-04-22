@@ -11,17 +11,20 @@ const Mutation = {
     db.users.push(user);
     return user;
   },
-  createPost(parent, args, { db }, info) {
-    const { author } = args.data;
+  createPost(parent, args, { db, pubSub }, info) {
+    const { author, published } = args.data;
     const userExist = db.users.some((user) => user.id === author);
     if (!userExist) {
       throw new Error("User Not Found!!!");
     }
     const post = { id: uuidv4(), ...args.data };
     db.posts.push(post);
+    if (published) {
+      pubSub.publish("post", { post: { mutationType: "CREATED", data: post } });
+    }
     return post;
   },
-  createComment(parent, args, { db }, info) {
+  createComment(parent, args, { db, pubSub }, info) {
     const { author, post: postId } = args.data;
     const userExist = db.users.some((user) => user.id === author);
     if (!userExist) {
@@ -35,7 +38,52 @@ const Mutation = {
     }
     const comment = { id: uuidv4(), ...args.data };
     db.comments.push(comment);
+
+    pubSub.publish(`comment ${postId}`, {
+      comment: { mutationType: "CREATED", data: comment },
+    });
+
     return comment;
+  },
+  updatePost(parent, args, { db, pubSub }, info) {
+    const {
+      id,
+      data: { title, body, published },
+    } = args;
+    const post = db.posts.find((post) => post.id === id);
+    const orgPost = { ...post };
+
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    if (typeof title === "string") {
+      post.title = title;
+    }
+
+    if (typeof body === "string") {
+      post.body = body;
+    }
+
+    if (typeof published === "boolean") {
+      post.published = published;
+
+      if (orgPost.published && !post.published) {
+        pubSub.publish("post", {
+          post: { mutationType: "DELETED", data: orgPost },
+        });
+      } else if (!orgPost.published && post.published) {
+        pubSub.publish("post", {
+          post: { mutationType: "CREATED", data: post },
+        });
+      } else if (post.published) {
+        pubSub.publish("post", {
+          post: { mutationType: "UPDATED", data: post },
+        });
+      }
+    }
+
+    return post;
   },
   deleteUser(parent, args, { db }, info) {
     const userIndex = db.users.findIndex((user) => user.id === args.id);
@@ -53,24 +101,53 @@ const Mutation = {
     db.comments = db.comments.filter((comment) => comment.author !== args.id);
     return deletedUsers[0];
   },
-  deletePost(parent, args, { db }, info) {
+  deletePost(parent, args, { db, pubSub }, info) {
     const postIndex = db.posts.findIndex((post) => post.id === args.id);
     if (postIndex === -1) {
       throw new Error("Post not found");
     }
-    const deletedPosts = db.posts.splice(postIndex, 1);
+    const [post] = db.posts.splice(postIndex, 1);
     db.comments = db.comments.filter((comment) => comment.post !== args.id);
-    return deletedPosts[0];
+
+    if (post.published) {
+      pubSub.publish("post", { post: { mutationType: "DELETED", data: post } });
+    }
+
+    return post;
   },
-  deleteComment(parent, args, { db }, info) {
+  updateComment(parent, args, { db, pubSub }, info) {
+    const {
+      id,
+      data: { text },
+    } = args;
+    const comment = db.comments.find((comment) => comment.id === id);
+
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+
+    if (typeof text === "string") {
+      comment.text = text;
+    }
+
+    pubSub.publish(`comment ${comment.post}`, {
+      comment: { mutationType: "UPDATED", data: comment },
+    });
+
+    return comment;
+  },
+  deleteComment(parent, args, { db, pubSub }, info) {
     const commentIndex = db.comments.findIndex(
       (comment) => comment.id === args.id
     );
     if (commentIndex === -1) {
       throw new Error("Comment not found");
     }
-    const deletedComments = db.comments.splice(commentIndex, 1);
-    return deletedComments[0];
+    const [comment] = db.comments.splice(commentIndex, 1);
+    pubSub.publish(`comment ${comment.post}`, {
+      comment: { mutationType: "DELETED", data: comment },
+    });
+    return comment;
   },
 };
 
