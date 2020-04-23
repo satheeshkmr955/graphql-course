@@ -1,0 +1,29 @@
+type User {
+  id: ID! @id
+  name: String!
+  email: String! @unique
+  posts: [Post!]! @relation(name: "UserPosts", link: INLINE)
+  comments: [Comment!]! @relation(name: "UserComments", link: INLINE)
+  createdAt: DateTime! @createdAt
+  updatedAt: DateTime! @updatedAt
+}
+
+type Post {
+  id: ID! @id
+  title: String!
+  body: String!
+  published: Boolean!
+  author: User! @relation(name: "UserPosts")
+  comments: [Comment!]! @relation(name: "PostComments", link: INLINE)
+  createdAt: DateTime! @createdAt
+  updatedAt: DateTime! @updatedAt
+}
+
+type Comment {
+  id: ID! @id
+  text: String!
+  author: User! @relation(name: "UserComments")
+  post: Post! @relation(name: "PostComments")
+  createdAt: DateTime! @createdAt
+  updatedAt: DateTime! @updatedAt
+}
