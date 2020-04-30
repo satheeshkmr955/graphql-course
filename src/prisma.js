@@ -5,8 +5,4 @@ const prisma = new Prisma({
   endpoint: "http://localhost:4466",
 });
 
-prisma.query
-  .users(null, "{ id name email posts {id title body published}}")
-  .then((data) => {
-    console.dir(data, { depth: null });
-  });
+export default prisma;

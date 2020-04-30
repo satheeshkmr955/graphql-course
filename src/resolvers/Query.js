@@ -1,3 +1,5 @@
+import prisma from "../prisma";
+
 const Query = {
   me() {
     return {
@@ -15,23 +17,28 @@ const Query = {
       published: true,
     };
   },
-  users(parent, args, { db }, info) {
-    const { query } = args;
-    if (!query) return db.users;
-    return db.users.filter((user) =>
-      user.name.toLowerCase().includes(query.toLowerCase())
-    );
+  users(parent, args, { prisma }, info) {
+    const opArgs = {};
+    if (args.query) {
+      opArgs.where = {
+        name_contains: args.query,
+      };
+    }
+
+    return prisma.query.users(opArgs, info);
   },
-  posts(parent, args, { db }, info) {
-    const { query } = args;
-    if (!query) return db.posts;
-    const isTitle = db.posts.filter((post) =>
-      post.title.toLowerCase().includes(query.toLowerCase())
-    );
-    return isTitle;
+  posts(parent, args, { prisma }, info) {
+    const opArgs = {};
+    if (args.query) {
+      opArgs.where = {
+        title_contains: args.query,
+      };
+    }
+
+    return prisma.query.posts(opArgs, info);
   },
-  comments(parent, args, { db }, info) {
-    return db.comments;
+  comments(parent, args, { prisma }, info) {
+    return prisma.query.comments(null, info);
   },
 };
 
